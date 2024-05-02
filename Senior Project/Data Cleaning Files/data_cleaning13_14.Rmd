@@ -1,0 +1,266 @@
+---
+author: "Noreen Mayat" 
+title: "ASCVD_data"
+output: html_document
+date: "2024-02-29"
+---
+
+```{r, setup, include=FALSE}
+# Load in Libraries
+library(NHANES)
+library(ggplot2)
+library(dplyr)
+library(haven)
+
+knitr::opts_knit$set(root.dir = '/Users/noreenmayat/Desktop/Senior Project')
+```
+
+#### Functions
+```{r}
+# Functions to convert Refused/Don't Know values to Null
+replace_values_with_NA <- function(df, col_names, vals) {
+  
+  for (col_name in col_names) {
+    # Replace specified values with NA in the given column
+    df[[col_name]][df[[col_name]] %in% vals] <- NA
+  }
+  
+  # Return the modified data
+  return(df)
+  }
+
+# Functions to recode 1/2 binary values to 0/1 binary 
+convert_ones_and_twos <- function(data, col_names) {
+  # Loop through each specified column
+  for (col_name in col_names) {
+    # Convert 1 to 0 and 2 to 1 in the current column
+    data[[col_name]][data[[col_name]] == 1] <- 1
+    data[[col_name]][data[[col_name]] == 2] <- 0
+  }
+  
+  # Return the modified dataframe
+  return(data)
+}
+```
+
+#### Load in Datasets
+```{r}
+# Demographic Data 
+# A lot of this data (ex. age, sex, race) is already being leveraged in computing current ASCVD scores 
+demo_data <- read_xpt("raw data/13-14/DEMO_H.XPT")
+
+# Select and rename relevant columns
+demo_data <- demo_data %>% 
+  select(SEQN, RIDAGEYR, RIAGENDR, RIDRETH1, RIDRETH3, INDFMIN2, INDHHIN2, INDFMPIR) %>%
+  rename(PatientID = SEQN, Age = RIDAGEYR, Sex = RIAGENDR, Race1 = RIDRETH1, Race2 = RIDRETH3, Ann_FamIncome = INDFMIN2, Ann_HHIncome = INDHHIN2, PovertyRatio = INDFMPIR) %>% 
+    mutate(Sex = case_when(
+    Sex == 1 ~ "male",
+    Sex == 2 ~ "female"
+    ),
+    Race1 = case_when(
+    Race1 == 1 | Race1 == 2 | Race1 == 5 ~ "other",
+    Race1 == 3 ~ "white",
+    Race1 == 4 ~ 'aa'
+    ),
+    Race2 = case_when(
+    Race2 == 1 ~ 0,
+    Race2 == 2 ~ 1,
+    Race2 == 3 ~ 2,
+    Race2 == 4 ~ 3,
+    Race2 == 6 ~ 4,
+    Race2 == 7 ~ 5
+    ),
+    Ann_FamIncome = case_when(
+    Ann_FamIncome == 1 ~ 0,
+    Ann_FamIncome == 2 ~ 1,
+    Ann_FamIncome == 3 ~ 2,
+    Ann_FamIncome == 4 ~ 3,
+    Ann_FamIncome == 5 ~ 4,
+    Ann_FamIncome == 6 ~ 5,
+    Ann_FamIncome == 7 ~ 6,
+    Ann_FamIncome == 8 ~ 7,
+    Ann_FamIncome == 9 ~ 8,
+    Ann_FamIncome == 10 ~ 9,
+    Ann_FamIncome == 14 ~ 10,
+    Ann_FamIncome == 15 ~ 11
+    ),
+    Ann_HHIncome = case_when(
+    Ann_HHIncome == 1 ~ 0,
+    Ann_HHIncome == 2 ~ 0,
+    Ann_HHIncome == 3 ~ 0,
+    Ann_HHIncome == 4 ~ 0,
+    Ann_HHIncome == 5 ~ 0,
+    Ann_HHIncome == 6 ~ 0,
+    Ann_HHIncome == 7 ~ 0,
+    Ann_HHIncome == 8 ~ 1,
+    Ann_HHIncome == 9 ~ 1,
+    Ann_HHIncome == 10 ~ 1,
+    Ann_HHIncome == 14 ~ 1,
+    Ann_HHIncome == 15 ~ 2
+    )
+  )
+  
+# Check how many null values in each column
+colSums(is.na(demo_data))
+
+# Convert all Refused/Don't Know values to Null
+demo_data <- replace_values_with_NA(demo_data, c("Ann_FamIncome", "Ann_HHIncome"), c(12, 13, 77, 99))
+```
+
+```{r}
+# Cholesterol Data
+# Used in ASCVD scores
+# HDL and Total Levels
+cholesterol_data_total <- read_xpt("raw data/13-14/TCHOL_H.XPT")
+cholesterol_data_HDL <- read_xpt("raw data/13-14/HDL_H.XPT")
+
+# Select and rename relevant columns
+cholesterol_data_HDL <- cholesterol_data_HDL %>% 
+  select(SEQN, LBDHDD) %>% 
+  rename(PatientID = SEQN, HDLChol = LBDHDD)
+
+cholesterol_data_total <- cholesterol_data_total %>% 
+  select(SEQN, LBXTC) %>% 
+  rename(PatientID = SEQN, TotalChol = LBXTC)
+
+# Combine dataframes
+chol_data <- merge(cholesterol_data_HDL, cholesterol_data_total, by='PatientID')
+```
+
+```{r}
+# Blood Pressure Data
+# Used in ASCVD scores
+# Do I average the readings? 
+bp_data <- read_xpt("raw data/13-14/BPX_H.XPT")
+
+# Select and rename relevant columns
+bp_data <- bp_data %>% 
+  select(SEQN, BPXSY1, BPXSY2, BPXSY3, BPXSY4) %>% 
+  rename(PatientID = SEQN, SysBP1 = BPXSY1, SysBP2 = BPXSY2, SysBP3 = BPXSY3, SysBP4 = BPXSY4)
+
+# Averaging the readings 
+bp_data$AvgSysBP <- rowMeans(bp_data[, c('SysBP1', 'SysBP2', 'SysBP3', 'SysBP4')], na.rm=TRUE)
+bp_data <- bp_data %>% 
+  select(PatientID, AvgSysBP)
+
+# On blood pressure medication
+bp_med_data <- read_xpt("raw data/13-14/BPQ_H.XPT")
+bp_med_data <- bp_med_data %>% 
+  select(SEQN, BPQ050A) %>% 
+  rename(PatientID = SEQN,  BPMed = BPQ050A)
+
+# Convert all Refused/Don't Know values to Null
+bp_data <- replace_values_with_NA(bp_data, c("AvgSysBP"), c('NaN'))
+bp_med_data <- replace_values_with_NA(bp_med_data, c("BPMed"), c(7, 9))
+```
+
+```{r}
+# Diabetes Data
+# Used in ASCVD scores
+diabetes_data <- read_xpt("raw data/13-14/DIQ_H.XPT")
+
+# Select and rename relevant columns
+diabetes_data <- diabetes_data %>% 
+  select(SEQN, DIQ010) %>% 
+  rename(PatientID = SEQN, Diabetes = DIQ010)
+
+# Convert all Refused/Don't Know values to Null
+diabetes_data <- replace_values_with_NA(diabetes_data, c("Diabetes"), c(3, 7, 9))
+```
+
+```{r}
+# Smoking Status Data
+# Used in ASCVD scores
+smoking_data <- read_xpt("raw data/13-14/SMQ_H.XPT")
+
+# Select and rename relevant columns
+smoking_data <- smoking_data %>% 
+  select(SEQN, SMQ040) %>% 
+  rename(PatientID = SEQN, Smoking = SMQ040)
+
+# Convert all Refused/Don't Know values to Null
+smoking_data <- replace_values_with_NA(smoking_data, "Smoking", c(7, 9))
+
+# Current Smoker = 1 or 2; Not Smoker = 3
+smoking_data$Smoking[smoking_data$Smoking == 1 | smoking_data$Smoking == 2] <- 1
+smoking_data$Smoking[smoking_data$Smoking == 3] <- 0
+```
+
+```{r}
+# CVD Data
+cvd_data <- read_xpt("raw data/13-14/MCQ_H.XPT")
+cvd_data <- cvd_data %>% 
+  select(SEQN, MCQ160E, MCQ160F, MCQ160C, MCQ160B) %>% 
+  rename(PatientID = SEQN, HeartAttack = MCQ160E, Stroke = MCQ160F, CoronaryDisease = MCQ160C, HeartFailure = MCQ160B)
+
+# Combine stroke and heart attack columns
+cvd_data <- cvd_data %>% 
+  mutate(NegOutcome = case_when(
+    HeartAttack == 1 ~ 1,
+    Stroke == 1 ~ 1,
+    HeartFailure == 1 ~ 1,
+    CoronaryDisease == 1 ~ 1, 
+    HeartAttack == 1 & Stroke == 1 & HeartFailure == 1 & CoronaryDisease == 1 ~ 1,
+    HeartAttack == 2 & Stroke == 2 & HeartFailure == 2 & CoronaryDisease == 2 ~ 0))
+
+# Convert all Refused/Don't Know values to Null
+cvd_data <- replace_values_with_NA(cvd_data, c("HeartAttack", "Stroke", "CoronaryDisease", "HeartFailure"), c(7, 9))
+```
+
+#### Social Determinants of Health
+```{r}
+# Nutritional Data
+nutrition_data <- read_xpt("raw data/13-14/DBQ_H.XPT")
+
+nutrition_data <- nutrition_data %>% 
+  select(SEQN, DBD900) %>% 
+  rename(PatientID = SEQN, FastFood = DBD900)
+
+# FastFood = 5555 means >21 meals fastfood
+nutrition_data$FastFood[nutrition_data$FastFood == 5555] <- 22
+
+# Convert all Refused/Don't Know values to Null
+nutrition_data <- replace_values_with_NA(nutrition_data, c("FastFood"), c(7777, 9999))
+
+# Food Security Data
+foodsecurity_data <- read_xpt("raw data/13-14/FSQ_H.XPT")
+
+foodsecurity_data <- foodsecurity_data %>% 
+  select(SEQN, FSD032C, FSD032D, FSDHH) %>% 
+  rename(PatientID = SEQN, BalancedMeals = FSD032C, LowCost = FSD032D, FoodSecurity = FSDHH)
+
+# Convert all Refused/Don't Know values to Null
+foodsecurity_data <- replace_values_with_NA(foodsecurity_data, c("BalancedMeals", "LowCost"), c(7, 9))
+
+# Recoding columns 
+foodsecurity_data <- foodsecurity_data %>% 
+  mutate(BalancedMeals = case_when(
+    BalancedMeals == 3 ~ 0,
+    BalancedMeals == 2 ~ 1,
+    BalancedMeals == 1 ~ 2),
+    LowCost = case_when(
+    LowCost == 3 ~ 0,
+    LowCost == 2 ~ 1,
+    LowCost == 1 ~ 2),
+    FoodSecurity = case_when(
+    FoodSecurity == 1 ~ 0,
+    FoodSecurity == 2 ~ 1,
+    FoodSecurity == 3 ~ 2,
+    FoodSecurity == 4 ~ 3))
+```
+
+```{r}
+# Combine all Data
+dfs <- list(demo_data, chol_data, bp_data, bp_med_data, diabetes_data, smoking_data, cvd_data, nutrition_data, foodsecurity_data)
+df_13_14 <- dfs %>% 
+  reduce(full_join, by="PatientID")
+
+# Convert ones and twos to zeroes and ones
+df_13_14<- convert_ones_and_twos(df_13_14, c("BPMed", "Diabetes", "HeartAttack", "Stroke", "CoronaryDisease", "HeartFailure"))
+```
+
+```{r}
+# Writing data to a CSV file
+write.csv(df_13_14, "Cleaned Data/13_14_cleaned.csv")
+```
+

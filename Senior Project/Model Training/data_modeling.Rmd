@@ -1,0 +1,613 @@
+---
+author: "Noreen Mayat" 
+title: "ASCVD_data"
+output: html_document
+date: "2024-03-27"
+---
+
+#### Model Training
+
+```{r, setup, include = FALSE}
+# Load in Libraries
+library(CVrisk)
+library(ggplot2)
+library(dplyr)
+library(haven)
+library(tidyverse)
+library(broom)  
+library(ggplot2)
+library(caret)
+library(tidymodels)
+library(pROC)
+library(tableone)
+library(knitr)
+library(crosstable)
+library(flextable)
+library(broom)
+
+# For Training
+library(OpenML)
+library(randomForest)
+
+knitr::opts_knit$set(root.dir = '/Users/noreenmayat/Desktop/Senior Project')
+```
+
+```{r}
+# Load in Data
+train_df <- read.csv("Cleaned Data/imputed_train.csv")
+test_df <- read.csv("Cleaned Data/imputed_test.csv")
+full_df <- read.csv("Cleaned Data/imputed_full.csv")
+
+# Re-code as binaries for ML 
+train_df$Race1 <- ifelse(train_df$Race1 %in% c("white", "other"), 0, 1)
+train_df$Sex <- ifelse(train_df$Sex == "male", 0, 1)
+train_df$X <- NULL
+
+test_df$Race1 <- ifelse(test_df$Race1 %in% c("white", "other"), 0, 1)
+test_df$Sex <- ifelse(test_df$Sex == "male", 0, 1)
+test_df$X <- NULL
+
+full_df$Race1 <- ifelse(full_df$Race1 %in% c("white", "other"), 0, 1)
+full_df$Sex <- ifelse(full_df$Sex == "male", 0, 1)
+full_df$X <- NULL
+
+# Converting to factors for visuals
+full_df$NegOutcome <- factor(full_df$NegOutcome, levels = c(0, 1))
+levels(full_df$NegOutcome) <- c("No", "Yes")
+
+binary_vars <- c("Sex", "Race1", "BPMed", "Diabetes", "Smoking")
+
+# Convert binary variables to factors with appropriate levels and labels
+full_df[binary_vars] <- lapply(full_df[binary_vars], function(x) factor(x, levels = c(0, 1), labels = c("No", "Yes")))
+
+full_df$Ann_HHIncome <- factor(full_df$Ann_HHIncome)
+levels(full_df$Ann_HHIncome) <- c("Lower: [$0-$50,000)", "Middle: [$50,00-$100,000)", "Upper: $100,000>")
+
+# Convert 'race' into a factor
+full_df$Race2 <- factor(full_df$Race2)
+levels(full_df$Race2) <- c("Mexican American", "Other Hispanic", "Non-Hispanic White", "Non-Hispanic Black", "Non-Hispanic Asian", "Other Race")
+
+# Food Security
+full_df$FoodSecurity <- factor(full_df$FoodSecurity)
+levels(full_df$FoodSecurity) <- c("Full Food Security", "Marginal Food Security", "Low Food Security", "Very Low Food Security")
+
+# Balanced Meals
+full_df$BalancedMeals <- factor(full_df$BalancedMeals)
+levels(full_df$BalancedMeals) <- c("Could Afford", "Could Sometimes Afford", "Couldn't Afford")
+
+# Low Cost Meals
+full_df$LowCost <- factor(full_df$LowCost)
+levels(full_df$LowCost) <- c("Didn't buy LC", "Sometimes bought LC", "Usually bought LC")
+```
+
+#### Distribution of the ASCVD score for negative vs non-negative outcomes -- observe density 
+```{r warning=FALSE}
+# Violin plot for ASCVD score by outcome
+ggplot(full_df, aes(x=NegOutcome, y=ASCVD, fill=NegOutcome)) + 
+  geom_violin(trim=FALSE) + 
+  labs(title="Distribution of ASCVD Score by CVD Events", x="CVD Event", y="ASCVD Score", fill = 'CVD Event') + 
+  ylim(0, 100) + 
+  scale_fill_brewer(palette="Accent") 
+```
+##### Violin plots use kernel density estimation (KDE) works. KDE is a method to estimate the probability density function of a continuous random variable. It's smooth and can extend beyond the actual range of the data when estimating the density near the boundaries of the data set. Even though there are no negative ASCVD scores, the KDE can produce a curve that extends into negative values to smoothly account for the distribution around the lower boundary of the dataset. This is purely a visual effect of the "smoothing process," and doesn't imply that there are negative values in the data.
+
+#### Average ASCVD score using a stratified race variable 
+```{r warning=FALSE}
+average_scores <- full_df %>%
+  group_by(Race2) %>%
+  summarise(average_score = mean(ASCVD, na.rm = TRUE), sem = sd(ASCVD, na.rm = TRUE) / sqrt(n())) %>%
+  ungroup() 
+
+ggplot(average_scores, aes(x = Race2, y = average_score, fill = Race2)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = average_score - sem, ymax = average_score + sem),
+                width = 0.2,                   # Controls the width of the error bars
+                position = position_dodge(0.9)) +
+  scale_fill_brewer(palette = "Accent") +
+  theme_minimal() +
+  labs(x = "Race", y = "Average ASCVD Score", title = "Average ASCVD Scores by Race (Stratified)", fill = "Race") +
+  geom_text(aes(label = round(average_score, 2)), vjust = -1, size = 3.5) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
+```
+
+#### Average ASCVD score based on Income
+```{r warning=FALSE}
+average_scores <- full_df %>%
+  group_by(Ann_HHIncome) %>%
+  summarise(average_score = mean(ASCVD, na.rm = TRUE), sem = sd(ASCVD, na.rm = TRUE) / sqrt(n())) %>%
+  ungroup() 
+
+ggplot(average_scores, aes(x = Ann_HHIncome, y = average_score, fill = Ann_HHIncome)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  geom_errorbar(aes(ymin = average_score - sem, ymax = average_score + sem),
+                width = 0.2,                   # Controls the width of the error bars
+                position = position_dodge(0.9)) +
+  scale_fill_brewer(palette = "Accent") +
+  theme_minimal() +
+  labs(x = "Income Category", y = "Average ASCVD Score", title = "Average ASCVD Scores by Income Categories", fill = "Income Category") +
+  geom_text(aes(label = round(average_score, 2)), vjust = -1.1, size = 3.5) 
+```
+#### Table 1 
+```{r}
+# table 1 - avg value and std for each covariant; split between negative vs. non-negative outcomes in 2 columns, each row is a different covariant -- R table 1 package 
+covariates <- c("Age", "HDLChol", "TotalChol", "AvgSysBP", "PovertyRatio", "FastFood", "ASCVD")
+catVars <- c("Sex", "Race1", "Race2", "BPMed", "Diabetes", "Smoking", "Ann_HHIncome", "BalancedMeals", "LowCost", "FoodSecurity")
+
+# Combine lists
+vars <- c(covariates, catVars)
+
+# Create a table one object
+table1 <- CreateTableOne(vars = vars, strata = "NegOutcome", data = full_df, factorVars = catVars,
+                         test = FALSE) 
+
+# Print the table with mean and SD for continuous variables
+print(table1, nonnormal = covariates, showAllLevels = TRUE)
+```
+
+```{r}
+# Aesthetics
+cross_table <- crosstable(full_df, cols=any_of(vars), 
+           by=NegOutcome, showNA = "no") %>% 
+   as_flextable()
+
+autofit(cross_table)
+```
+
+#### Boxplots -- for each variable for each category 
+```{r warning=FALSE}
+# Convert your data to long format with tidyr's pivot_longer
+long_df <- pivot_longer(full_df, 
+                        cols = covariates,
+                        names_to = "variable", 
+                        values_to = "value")
+
+clean_df <- long_df %>%
+  filter(!is.na(NegOutcome), !is.na(value))
+
+# Now, create individual boxplots for each variable
+ggplot(clean_df, aes(x = NegOutcome, y = value, fill = NegOutcome)) + 
+  geom_boxplot(na.rm = TRUE) + 
+  facet_wrap(~variable, scales = "free_y") + # Each variable on its own y scale
+  theme(axis.text.x = element_text(angle = 90, hjust = 1)) + # Rotate x-axis labels for clarity
+  labs(x = "Outcome", y = "Value", fill = "CVD Event") # Label the axes and legend
+```
+
+### Count NA values in outcome variable
+```{r}
+# PCE
+sum(is.na(train_df))
+sum(is.na(test_df))
+```
+
+### Pre-processing
+```{r}
+# Removing NAs
+train_df <- na.omit(train_df)
+test_df <- na.omit(test_df)
+
+# Changing to factors 
+train_df$Race2 <- factor(train_df$Race2)
+test_df$Race2 <- factor(test_df$Race2)
+
+train_df <- train_df %>%
+  mutate(across(all_of(c('Ann_FamIncome', 'Ann_HHIncome', 'FastFood', 'BalancedMeals', 'LowCost', 'FoodSecurity')), ~factor(.x, levels = as.character(0:max(.x, na.rm = TRUE)), ordered = TRUE)))
+
+test_df <- test_df %>%
+  mutate(across(all_of(c('Ann_FamIncome', 'Ann_HHIncome', 'FastFood', 'BalancedMeals', 'LowCost', 'FoodSecurity')), ~factor(.x, levels = as.character(0:max(.x, na.rm = TRUE)), ordered = TRUE)))
+
+blueprint <- recipe(NegOutcome ~ ., data = train_df) %>% 
+  
+             step_center(all_of(c('Age', 'PovertyRatio', 'HDLChol', 'TotalChol', 'AvgSysBP'))) %>%
+  
+             step_scale(all_of(c('Age', 'PovertyRatio', 'HDLChol', 'TotalChol', 'AvgSysBP'))) 
+
+## Estimating blueprint parameters 
+blueprint_prep <- prep(blueprint, training = train_df)
+
+## Transforming data
+transformed_train <- bake(blueprint_prep, new_data = train_df)
+transformed_test <- bake(blueprint_prep, new_data = test_df)
+```
+
+```{r}
+# Subset Appropriate Columns-- without SDOH, just PCE variables
+train_df_PCE <- transformed_train[c('Age', 'Sex', 'Race1', 'HDLChol', 'TotalChol', 'AvgSysBP', 'BPMed', 'Diabetes', 'Smoking', 'NegOutcome')] 
+
+test_df_PCE <- transformed_test[c('Age', 'Sex', 'Race1', 'HDLChol', 'TotalChol', 'AvgSysBP', 'BPMed', 'Diabetes', 'Smoking', 'NegOutcome')] 
+
+# Subset Appropriate Columns-- with SDOH, and more stratified race variables
+train_df_SDOH <- transformed_train[c('Age', 'Sex', 'Race2', 'HDLChol', 'TotalChol', 'AvgSysBP', 'BPMed', 'Diabetes', 'Smoking', 'Ann_FamIncome', 'Ann_HHIncome', 'PovertyRatio', 'FastFood', 'BalancedMeals', 'LowCost', 'FoodSecurity', 'NegOutcome')] 
+
+test_df_SDOH <- transformed_test[c('Age', 'Sex', 'Race2', 'HDLChol', 'TotalChol', 'AvgSysBP', 'BPMed', 'Diabetes', 'Smoking', 'Ann_FamIncome', 'Ann_HHIncome', 'PovertyRatio', 'FastFood', 'BalancedMeals', 'LowCost', 'FoodSecurity', 'NegOutcome')] 
+
+# Converting to factors 
+train_df_PCE$NegOutcome <- factor(train_df_PCE$NegOutcome, levels = c(0, 1))
+test_df_PCE$NegOutcome <- factor(test_df_PCE$NegOutcome, levels = c(0, 1))
+
+train_df_SDOH$NegOutcome <- factor(train_df_SDOH$NegOutcome, levels = c(0, 1))
+test_df_SDOH$NegOutcome <- factor(test_df_SDOH$NegOutcome, levels = c(0, 1))
+```
+
+### Logistic Regression: PCE variables
+```{r}
+logr_model_PCE <- glm(NegOutcome ~., family=binomial, data=train_df_PCE)
+summary(logr_model_PCE)
+tidy_model <- tidy(logr_model_PCE)
+
+ft <- flextable(tidy_model)
+
+format_pvalue <- function(p) {
+  sapply(p, function(x) {
+    if (x < 2e-16) {
+      # Represent extremely small p-values as "< 2e-16"
+      ifelse(x < 0.05, "< 2e-16*", "< 2e-16")
+    } else if (x < 0.001) {
+      # Use scientific notation with exactly two digits in the exponent for small but not extreme values
+      ifelse(x < 0.05, sprintf("%.2e*", x), sprintf("%.2e", x))
+    } else {
+      # Display up to six decimal places, but no unnecessary trailing zeros for larger values
+      formatted_value <- strip_trailing_zeros(sprintf("%.6f", x))
+      ifelse(x < 0.05, paste0(formatted_value, "*"), formatted_value)
+    }
+  })
+}
+
+# Helper function to strip unnecessary trailing zeros
+strip_trailing_zeros <- function(num_str) {
+  sub("0+$", "", sub("\\.$", "", num_str))
+}
+
+# Apply custom formatting to different columns
+ft <- set_formatter(ft,
+  estimate = function(x) format(x, digits = 4, nsmall = 4),    # 4 decimal places
+  std.error = function(x) format(x, digits = 4, nsmall = 4),
+  statistic = function(x) format(x, digits = 3, nsmall = 3),
+  p.value = format_pvalue,     # 4 decimal places for p-values
+  conf.low = function(x) format(x, digits = 4, nsmall = 4),
+  conf.high = function(x) format(x, digits = 4, nsmall = 4)
+)
+
+print(ft)
+```
+
+### Accuracy, Precision, Recall: PCE
+```{r}
+# Training set results
+pred_train_PCE <- predict(logr_model_PCE, newdata = train_df_PCE, type="response")
+
+# Change probabilities to 0, 1
+pred_train_PCE <- ifelse(pred_train_PCE > 0.2706511, 1, 0)
+
+# Test set results
+pred_test_PCE <- predict(logr_model_PCE, newdata = test_df_PCE, type="response")
+
+# Change probabilities to 0, 1
+pred_test_PCE <- ifelse(pred_test_PCE > 0.2706511, 1, 0)
+
+train_pred_PCE <- factor(pred_train_PCE, levels = c(0, 1))
+test_pred_PCE <- factor(pred_test_PCE, levels = c(0, 1))
+
+# Building Confusion Matrices
+results_PCE_train <- confusionMatrix(data=train_df_PCE$NegOutcome, reference=train_pred_PCE, positive = "1")
+print(results_PCE_train)
+
+results_PCE_test <- confusionMatrix(data=test_df_PCE$NegOutcome, reference=test_pred_PCE, positive = "1")
+print(results_PCE_test)
+
+# for our purposes, we want to optimize sensitivity 
+```
+
+```{r}
+Accuracy <- c(results_PCE_train$overall[['Accuracy']] , results_PCE_test$overall[['Accuracy']])
+Sensitivity <- c(results_PCE_train$byClass[['Sensitivity']] , results_PCE_test$byClass[['Sensitivity']])
+Precision <- c(results_PCE_train$byClass[['Precision']] , results_PCE_test$byClass[['Precision']])
+Specificity <- c(results_PCE_train$byClass[['Specificity']] , results_PCE_test$byClass[['Specificity']])
+F1 <- c(results_PCE_train$byClass[['F1']] , results_PCE_test$byClass[['F1']])
+df <- data.frame(Accuracy, F1, Sensitivity, Precision, Specificity)
+row.names(df) <- c('Training Set', 'Testing Set')
+df$PCE <- rownames(df)
+
+# Order the columns to have the index column first
+df <- df[, c("PCE", "Accuracy", "F1", "Sensitivity", "Precision","Specificity")]
+
+# Create the flextable
+print(flextable(df))
+```
+
+### ROC-AUC Curve 
+```{r}
+pred_test_PCE <- predict(logr_model_PCE, newdata = test_df_PCE, type="response")
+
+# create ROC object 
+roc_object <- roc(test_df_PCE$NegOutcome, pred_test_PCE)
+
+# calculate area under curve
+auc(roc_object)
+
+plot(roc_object, main = "ROC Curve", col = "#1c61b6", lwd = 2, print.thres=TRUE, print.auc=TRUE)
+
+# code for optimal threshold value 
+# the threshold printed right now is with the highest sum sensitivity + specificity is plotted
+```
+
+### Logistic Regression: SDOH variables
+```{r}
+logr_model_SDOH <- glm(NegOutcome ~., family=binomial, data=train_df_SDOH)
+summary(logr_model_SDOH)
+
+tidy_model <- tidy(logr_model_SDOH)
+ft <- flextable(tidy_model)
+
+# Apply custom formatting to different columns
+ft <- set_formatter(ft,
+  estimate = function(x) format(x, digits = 4, nsmall = 4),    # 4 decimal places
+  std.error = function(x) format(x, digits = 4, nsmall = 4),
+  statistic = function(x) format(x, digits = 3, nsmall = 3),
+  p.value = format_pvalue,     # 4 decimal places for p-values
+  conf.low = function(x) format(x, digits = 4, nsmall = 4),
+  conf.high = function(x) format(x, digits = 4, nsmall = 4)
+)
+
+print(ft)
+```
+
+```{r}
+# Find value of threshold that fraction of predicted values is also 10%
+# Predict probabilities on the test set
+probabilities <- predict(logr_model_PCE, test_df_PCE, type = "response") # get probabilities of the positive class
+
+# Sort probabilities and determine the threshold
+sorted_probs <- sort(probabilities, decreasing = TRUE)
+
+# Calculate the number of cases that represent at least 5% of the total
+min_positives <- ceiling(length(probabilities) * 0.05)
+
+# Find the threshold
+threshold <- sorted_probs[min_positives]
+print(threshold)
+```
+
+### Accuracy, Precision, Recall: SDOH
+```{r}
+# Training set results
+pred_train_SDOH <- predict(logr_model_SDOH, newdata = train_df_SDOH, type="response")
+
+# Change probabilities to 0, 1
+pred_train_SDOH <- ifelse(pred_train_SDOH > 0.295312, 1, 0)
+
+# Test set results
+pred_test_SDOH <- predict(logr_model_SDOH, newdata = test_df_SDOH, type="response")
+
+# Change probabilities to 0, 1
+pred_test_SDOH <- ifelse(pred_test_SDOH > 0.295312 , 1, 0)
+
+train_pred_SDOH <- factor(pred_train_SDOH, levels = c(0, 1))
+test_pred_SDOH <- factor(pred_test_SDOH, levels = c(0, 1))
+
+# Building Confusion Matrices
+results_SDOH_train <- confusionMatrix(train_df_SDOH$NegOutcome, train_pred_SDOH, positive = "1")
+print(results_SDOH_train)
+
+results_SDOH_test <- confusionMatrix(test_df_SDOH$NegOutcome, test_pred_SDOH, positive = "1")
+print(results_SDOH_test)
+```
+
+```{r}
+# Find value of threshold that fraction of predicted values is also 10%
+# Predict probabilities on the test set
+probabilities <- predict(logr_model_SDOH, test_df_SDOH, type = "response") # get probabilities of the positive class
+
+# Sort probabilities and determine the threshold
+sorted_probs <- sort(probabilities, decreasing = TRUE)
+
+# Calculate the number of cases that represent at least 5% of the total
+min_positives <- ceiling(length(probabilities) * 0.05)
+
+# Find the threshold
+threshold <- sorted_probs[min_positives]
+print(threshold)
+```
+
+```{r}
+Accuracy <- c(results_SDOH_train$overall[['Accuracy']] , results_SDOH_test$overall[['Accuracy']])
+Sensitivity <- c(results_SDOH_train$byClass[['Sensitivity']] , results_SDOH_test$byClass[['Sensitivity']])
+Precision <- c(results_SDOH_train$byClass[['Precision']] , results_SDOH_test$byClass[['Precision']])
+Specificity <- c(results_SDOH_train$byClass[['Specificity']] , results_SDOH_test$byClass[['Specificity']])
+F1 <- c(results_SDOH_train$byClass[['F1']] , results_SDOH_test$byClass[['F1']])
+df <- data.frame(Accuracy, F1, Sensitivity, Precision, Specificity)
+row.names(df) <- c('Training Set', 'Testing Set')
+df$SDOH <- rownames(df)
+
+# Order the columns to have the index column first
+df <- df[, c("SDOH", "Accuracy", "F1", "Sensitivity", "Precision", "Specificity")]
+
+# Create the flextable
+print(flextable(df))
+```
+
+### ROC-AUC Curve 
+```{r}
+pred_test_SDOH <- predict(logr_model_SDOH, newdata = test_df_SDOH, type="response")
+
+# create ROC object 
+roc_object <- roc(test_df_SDOH$NegOutcome, pred_test_SDOH)
+
+# calculate area under curve
+auc(roc_object)
+
+plot(roc_object, main = "ROC Curve", col = "#1c61b6", lwd = 2, print.thres=TRUE, print.auc=TRUE)
+```
+
+#### Random Forest 
+*Random Forest (RF) PCE*
+```{r warnings=FALSE}
+# Adjust factor levels
+levels(train_df_PCE$NegOutcome) <- make.names(levels(train_df_PCE$NegOutcome))
+levels(test_df_PCE$NegOutcome) <- make.names(levels(test_df_PCE$NegOutcome))
+
+# what is this
+# initial_rf <- randomForest(NegOutcome ~., data = train_df_PCE)
+# plot(initial_rf)
+```
+
+##### Hyper-parameter tuning
+```{r warnings = FALSE}
+set.seed(123)
+
+resample <- trainControl(method = "cv",
+                           
+                         number = 5,
+                           
+                         classProbs = TRUE,
+                           
+                         summaryFunction = twoClassSummary) 
+
+hyper_grid <- expand.grid(mtry = c(3, 4, 5, 7, 8, 9),
+                          
+                          splitrule = c("gini", "extratrees"),
+                          
+                          min.node.size = c(5, 7, 9))
+
+rf_fit <- train(NegOutcome ~ .,
+                
+                data = train_df_PCE, 
+                
+                method = "ranger",
+                
+                verbose = FALSE,
+                
+                trControl = resample, 
+                
+                tuneGrid = hyper_grid,
+                
+                metric = "ROC",
+                
+                num.trees = 470)
+
+## Plotting Results
+ggplot(rf_fit, metric = "Sens")   # Sensitivity
+trellis.par.set(caretTheme()) # optional
+plot(rf_fit, metric = "ROC", plotType = "level")
+```
+
+```{r}
+# Final Model
+fitControl_final <- trainControl(method = "none", classProbs = TRUE)
+                                 
+RF_final <- train(NegOutcome ~., 
+                  
+                  data = train_df_PCE,
+                  
+                  method = "ranger",
+                  
+                  trControl = fitControl_final,
+                  
+                  metric = "ROC",
+                  
+                  verbose = FALSE,
+                  
+                  tuneGrid = data.frame(mtry = 3,
+                                        
+                                        min.node.size = 9,
+                                        
+                                        splitrule = "extratrees"),
+                  
+                  num.trees = 470)
+
+# Training set results
+RF_pred_train <- predict(RF_final, newdata = train_df_PCE)
+RF_train_results <- confusionMatrix(train_df_PCE$NegOutcome, RF_pred_train)
+print(RF_train_results)
+
+# Test set results
+RF_pred_test <- predict(RF_final, newdata = test_df_PCE)
+RF_test_results <- confusionMatrix(test_df_PCE$NegOutcome, RF_pred_test)
+print(RF_test_results)
+
+# modify threshold for RF 
+```
+
+*Random Forest (RF) SDOH*
+```{r warnings=FALSE}
+# Adjust factor levels
+levels(train_df_SDOH$NegOutcome) <- make.names(levels(train_df_SDOH$NegOutcome))
+levels(test_df_SDOH$NegOutcome) <- make.names(levels(test_df_SDOH$NegOutcome))
+
+initial_rf <- randomForest(NegOutcome ~., data = train_df_PCE)
+plot(initial_rf)
+```
+
+##### Hyper-parameter tuning
+```{r warnings = FALSE}
+set.seed(1234)
+
+resample <- trainControl(method = "cv",
+                           
+                         number = 5,
+                           
+                         classProbs = TRUE,
+                           
+                         summaryFunction = twoClassSummary) 
+
+hyper_grid <- expand.grid(mtry = c(3, 4, 5, 7, 8, 9),
+                          
+                          splitrule = c("gini", "extratrees"),
+                          
+                          min.node.size = c(5, 7, 9))
+
+rf_fit <- train(NegOutcome ~ .,
+                
+                data = train_df_SDOH, 
+                
+                method = "ranger",
+                
+                verbose = FALSE,
+                
+                trControl = resample, 
+                
+                tuneGrid = hyper_grid,
+                
+                metric = "ROC",
+                
+                num.trees = 470)
+
+## Plotting Results
+ggplot(rf_fit, metric = "Sens")   # Sensitivity
+trellis.par.set(caretTheme()) # optional
+plot(rf_fit, metric = "ROC", plotType = "level")
+```
+
+```{r}
+# Final Model
+fitControl_final <- trainControl(method = "none", classProbs = TRUE)
+                                 
+RF_final <- train(NegOutcome ~., 
+                  
+                  data = train_df_SDOH,
+                  
+                  method = "ranger",
+                  
+                  trControl = fitControl_final,
+                  
+                  metric = "ROC",
+                  
+                  verbose = FALSE,
+                  
+                  tuneGrid = data.frame(mtry = 3,
+                                        
+                                        min.node.size = 9,
+                                        
+                                        splitrule = "extratrees"),
+                  
+                  num.trees = 470)
+
+# Training set results
+RF_pred_train <- predict(RF_final, newdata = train_df_SDOH)
+RF_train_results <- confusionMatrix(train_df_SDOH$NegOutcome, RF_pred_train)
+print(RF_train_results)
+
+# Test set results
+RF_pred_test <- predict(RF_final, newdata = test_df_SDOH)
+RF_test_results <- confusionMatrix(test_df_SDOH$NegOutcome, RF_pred_test)
+print(RF_test_results)
+```
