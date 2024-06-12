@@ -25,7 +25,8 @@ library(VIM)
 library(softImpute)
 library(ggplot2)
 
-knitr::opts_knit$set(root.dir = '/Users/noreenmayat/Desktop/Senior Project')
+# Set appropriate root directory 
+# knitr::opts_knit$set(root.dir = '/Users/noreenmayat/Desktop/Github/Machine-Learning-to-Predict-Cardiovascular-Health-Outcomes/Data Cleaning Files')
 ```
 
 ### Load Data

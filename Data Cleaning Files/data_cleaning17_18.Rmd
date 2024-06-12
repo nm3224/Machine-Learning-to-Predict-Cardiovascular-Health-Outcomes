@@ -12,7 +12,8 @@ library(ggplot2)
 library(dplyr)
 library(haven)
 
-knitr::opts_knit$set(root.dir = '/Users/noreenmayat/Desktop/Senior Project')
+# Set appropriate root directory 
+# knitr::opts_knit$set(root.dir = '/Users/noreenmayat/Desktop/Github/Machine-Learning-to-Predict-Cardiovascular-Health-Outcomes/Data Cleaning Files')
 ```
 
 #### Functions

@@ -29,7 +29,7 @@ library(broom)
 library(OpenML)
 library(randomForest)
 
-knitr::opts_knit$set(root.dir = '/Users/noreenmayat/Desktop/Senior Project')
+knitr::opts_knit$set(root.dir = '/Users/noreenmayat/Desktop/Github/Machine-Learning-to-Predict-Cardiovascular-Health-Outcomes')
 ```
 
 ```{r}
@@ -366,6 +366,22 @@ min_positives <- ceiling(length(probabilities) * 0.05)
 threshold <- sorted_probs[min_positives]
 print(threshold)
 ```
+
+### Computing Odds Ratios for Variables
+```{r}
+tidied_model <- tidy(logr_model_SDOH)
+
+top_increasing_predictors <- tidied_model %>%
+  mutate(OddsRatio = exp(estimate)) %>%
+  filter(estimate > 0) %>%  # Filtering to keep only positive coefficients
+  arrange(desc(OddsRatio)) %>%  # Sort by descending odds ratios
+  slice(1:10)
+
+# Display these top predictors using knitr::kable
+kable(top_increasing_predictors, format = "html", digits = 3, 
+      caption = "Top 10 Predictors Increasing Likelihood of Neg Outcome: SDOH")
+```
+
 
 ### Accuracy, Precision, Recall: SDOH
 ```{r}
