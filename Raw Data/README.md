@@ -1,0 +1,5 @@
+- `11-12` - Folder with all relevant NHANES data files from 2011-2012.
+  -   
+- `13_14` - Folder with all relevant NHANES data files from 2013-2014.
+- `15_16' - Folder with all relevant NHANES data files from 2015-2016.
+- `17_18` - Folder with all relevant NHANES data files from 2017-2018.
