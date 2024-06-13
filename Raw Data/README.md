@@ -1,5 +1,44 @@
 - `11-12` - Folder with all relevant NHANES data files from 2011-2012.
-  -   
+  -   `BPQ_G.XPT` - Contains *Yes/No* for blood pressure medication.
+  -   `BPX_G.XPT` - Contains blood pressure level data.
+  -   `DBQ_G.XPT` - Contains nutritional data.
+  -   `DEMO_G.XPT` - Contains demographic information data.
+  -   `DIQ_G.XPT` - Contains *Yes/No* for diabetes status data.
+  -   `FSQ_G.XPT` - Contains food security data.
+  -   `HDL_G.XPT` - Contains HDL cholesterol level data.
+  -   `MCQ_G.XPT` - Contains cardiovascular event data.
+  -   `SMQ_G.XPT` - Contains *Yes/No* for smoking status data.
+  -   `TCHOL_G.XPT` - Contains total cholesterol level data.
 - `13_14` - Folder with all relevant NHANES data files from 2013-2014.
+  -   `BPQ_H.XPT` - Contains *Yes/No* for blood pressure medication.
+  -   `BPX_H.XPT` - Contains blood pressure level data.
+  -   `DBQ_H.XPT` - Contains nutritional data.
+  -   `DEMO_H.XPT` - Contains demographic information data.
+  -   `DIQ_H.XPT` - Contains *Yes/No* for diabetes status data.
+  -   `FSQ_H.XPT` - Contains food security data.
+  -   `HDL_H.XPT` - Contains HDL cholesterol level data.
+  -   `MCQ_H.XPT` - Contains cardiovascular event data.
+  -   `SMQ_H.XPT` - Contains *Yes/No* for smoking status data.
+  -   `TCHOL_H.XPT` - Contains total cholesterol level data.
 - `15_16' - Folder with all relevant NHANES data files from 2015-2016.
+  -   `BPQ_I.XPT` - Contains *Yes/No* for blood pressure medication.
+  -   `BPX_I.XPT` - Contains blood pressure level data.
+  -   `DBQ_I.XPT` - Contains nutritional data.
+  -   `DEMO_I.XPT` - Contains demographic information data.
+  -   `DIQ_I.XPT` - Contains *Yes/No* for diabetes status data.
+  -   `FSQ_I.XPT` - Contains food security data.
+  -   `HDL_I.XPT` - Contains HDL cholesterol level data.
+  -   `MCQ_I.XPT` - Contains cardiovascular event data.
+  -   `SMQ_I.XPT` - Contains *Yes/No* for smoking status data.
+  -   `TCHOL_I.XPT` - Contains total cholesterol level data.
 - `17_18` - Folder with all relevant NHANES data files from 2017-2018.
+  -   `BPQ_J.XPT` - Contains *Yes/No* for blood pressure medication.
+  -   `BPX_J.XPT` - Contains blood pressure level data.
+  -   `DBQ_J.XPT` - Contains nutritional data.
+  -   `DEMO_J.XPT` - Contains demographic information data.
+  -   `DIQ_J.XPT` - Contains *Yes/No* for diabetes status data.
+  -   `FSQ_J.XPT` - Contains food security data.
+  -   `HDL_J.XPT` - Contains HDL cholesterol level data.
+  -   `MCQ_J.XPT` - Contains cardiovascular event data.
+  -   `SMQ_J.XPT` - Contains *Yes/No* for smoking status data.
+  -   `TCHOL_J.XPT` - Contains total cholesterol level data.
