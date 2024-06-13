@@ -29,5 +29,5 @@ knitr::opts_knit$set(root.dir = '/Users/noreenmayat/Desktop/Github/Machine-Learn
 <p float="left">
 <img src="Images/ASCVD_example.png" width="220" height="180" />
 <img src="Images/SDOH.png" width="255" height="170" />
-<img src="Images/machine_learning_pipeline.png" width="360" height="60" />
+<img src="Images/machine_learning_pipeline.png" width="350" height="60" />
 </p>
