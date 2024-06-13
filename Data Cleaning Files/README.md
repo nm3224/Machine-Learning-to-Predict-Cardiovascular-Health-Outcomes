@@ -1,0 +1,5 @@
+- `data_cleaning11_12.Rmd` - `R` file for cleaning NHANES data from 2011-2012.
+- `data_cleaning13_14.Rmd` - `R` file for cleaning NHANES data from 2013-2014.
+- `data_cleaning15_16.Rmd` - `R` file for cleaning NHANES data from 2015-2016.
+- `data_cleaning17_18.Rmd` - `R` file for cleaning NHANES data from 2017-2018.
+- `data_merging_imputing.Rmd` - `R` file for merging and imputing **all** NHANES data from 2011-2018 to build final dataset.
