@@ -23,8 +23,8 @@
 ### Exploratory Analysis:
 - `NAs.png` - Bar plot demonstrating how many NAs were in each of our feature variable categories before imputation was applied.
 - `cvd_events_barplot.png` - Bar graph demonstrating the imbalance in our dataset pertaining to our target variable: cardiovascular health outcomes: `negative = 1` vs. `non-negative = 0`.
-- `table1_cat.png` - Table 1 for all our categorical values, providing us a holistic understanding of the distribution of our data for each feature variable as it relates to our target variable: CVD outcomes.
-- `table1_cont.png` - Table 1 for all our continuous values, providing us a holistic understanding of the distribution of our data for each feature variable as it relates to our target variable: CVD outcomes.
+- `table1_cat.png` - Table 1 for all our categorical values, providing us a holistic understanding of the distribution of our data for each feature variable as it relates to our target variable: CVD outcomes. It provides the percentage breakdown of each ``Yes/No" category for both types of CVD outcomes for each of our  categorical variables.
+- `table1_cont.png` - Table 1 for all our continuous values, providing us a holistic understanding of the distribution of our data for each feature variable as it relates to our target variable: CVD outcomes. It provides us the min/max values, median, mean and number of NAs for both types of CVD outcomes for each of our continuous variables. 
 
 ### Project Design: 
 - `Flow_Chart.png` - Flowchart representing the above described methodology, highlighting both the existing and new feature variables that will be used to train our models in predicting CVD outcomes in adult patients.
