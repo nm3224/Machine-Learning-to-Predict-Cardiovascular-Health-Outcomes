@@ -23,3 +23,11 @@ knitr::opts_knit$set(root.dir = '/Users/noreenmayat/Desktop/Github/Machine-Learn
 - `Raw Data/` - Contains all raw,uncleaned data files from 2011-2018.
 - `Final Presentation.pdf` - Final presentation, presented to class at the end of my senior spring semester.
 - `Final Report CVD Outcomes.pdf` - Final report, submitted at the end of my senior spring semester.
+
+<br> 
+
+<p float="left">
+<img src="Images/ASCVD_example.png" width="270" height="230" />
+<img src="Images/SDOH.png" width="315" height="230" />
+<img src="Images/machine_learning_pipeline.png" width="400" height="100" />
+</p>
