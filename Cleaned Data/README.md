@@ -1,0 +1,7 @@
+- `11_12_cleaned.csv` - All cleaned NHANES data from 2011-2012.
+- `13_14_cleaned.csv` - All cleaned NHANES data from 2013-2014.
+- `15_16_cleaned.csv` - All cleaned NHANES data from 2015-2016.
+- `17_18_cleaned.csv` - All cleaned NHANES data from 2017-2018.
+- `imputed_full.csv` - All merged and cleaned NHANES data from 2011-2012, imputed.
+- `imputed_test.csv` - Merged, cleaned and imputed **testing set** NHANES data from 2011-2012.
+- `imputed_train.csv` - Merged, cleaned and imputed **training set** NHANES data from 2011-2012.
