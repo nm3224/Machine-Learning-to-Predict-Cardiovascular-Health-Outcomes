@@ -20,7 +20,7 @@
   -   `MCQ_H.XPT` - Contains cardiovascular event data.
   -   `SMQ_H.XPT` - Contains *Yes/No* for smoking status data.
   -   `TCHOL_H.XPT` - Contains total cholesterol level data.
-- `15_16' - Folder with all relevant NHANES data files from 2015-2016.
+- `15_16` - Folder with all relevant NHANES data files from 2015-2016.
   -   `BPQ_I.XPT` - Contains *Yes/No* for blood pressure medication.
   -   `BPX_I.XPT` - Contains blood pressure level data.
   -   `DBQ_I.XPT` - Contains nutritional data.
